@@ -75,8 +75,6 @@ class AviatorInfinityBot:
             icon = "✅" if s['status'] == 'win' else "❌"
             msg += f"{icon} Multiplicador: {s['res']:.2f}x (G{s['gale']})\n"
         
-        profit_perc = (self.profit / BANKROLL) * 100
-        msg += f"\n💰 *Profit Neto: {profit_perc:.2f}%*"
         self.enviar_telegram(msg)
         self.history_signals = []
 
