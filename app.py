@@ -19,7 +19,7 @@ TARGET_MULTIPLIER = 2.00
 # --- GESTIÓN DE RIESGO ---
 STOP_LOSS_TOTAL = 0.20  # Pausa larga si se pierde el 20%
 PAUSE_TIME_LOSS = 300   # 5 minutos de pausa si se pierde un Gale
-COOLDOWN_ROUNDS = 4    # Mínimo de rondas entre entradas (frecuencia simple)
+COOLDOWN_ROUNDS = 2    # Mínimo de rondas entre entradas (frecuencia balanceada)
 
 class AviatorInfinityBot:
     def __init__(self):
@@ -80,76 +80,40 @@ class AviatorInfinityBot:
 
     # --- LÓGICA DE FILTRADO ---
     # --- LÓGICA DE FILTRADO ---
-    def filtro_cuota_2(self, results):
+    def filtro_cuota2_balanceado(self, results):
         """
-        Filtro optimizado para buscar cuotas >= 2.0
+        FILTRO CUOTA 2.0 BALANCEADO
+        Busca un equilibrio entre frecuencia de señales y seguridad.
         """
-        current_index = self.round_count
+        i = self.round_count
         last_trade_index = self.last_trade_round
-        trades = self.trades_history
-
+        
         if len(results) < 5:
             return False
 
+        # Segmentos del historial cronológico
         last5 = results[-5:]
         last4 = results[-4:]
         last3 = results[-3:]
 
-        # ==============================
-        # COOLDOWN
-        # ==============================
-        if current_index - last_trade_index < COOLDOWN_ROUNDS:
+        # 1. COOLDOWN (2 rondas de espera mínima)
+        if i - last_trade_index < 2:
             return False
 
-        # ==============================
-        # ❌ BLOQUEOS
-        # ==============================
-
-        # Crash reciente o secuencia de crashes
-        if any(r < 1.30 for r in last3) or last3[-1] < 1.40:
+        # 2. EVITAR CRASH FUERTE RECIENTE
+        if any(r < 1.25 for r in last3):
             return False
 
-        # Mercado débil (zona débil fuerte last3)
-        if sum(1 for r in last3 if r < 1.50) >= 2:
-            return False
-
-        # Bloquear zona débil fuerte (last4)
+        # 3. EVITAR MERCADO DÉBIL
         if sum(1 for r in last4 if r < 1.50) >= 2:
             return False
 
-        # El bloqueo por pérdida se maneja con la pausa global en ejecutar_ciclo
-
-        # ==============================
-        # ✅ CONDICIONES PRINCIPALES
-        # ==============================
-
-        # Continuidad fuerte
+        # 4. CONTINUIDAD (Fuerza en 3 rondas)
         if sum(1 for r in last3 if r >= 1.70) < 2:
             return False
 
-        # Evitar rachas continuas (no entrar si las últimas 3 fueron >= 1.70)
-        if all(r >= 1.70 for r in last3):
-            return False
-
-        # Confirmación media-alta
+        # 5. CONFIRMACIÓN LIGERA (Estabilidad en 5 rondas)
         if sum(1 for r in last5 if r >= 1.80) < 2:
-            return False
-
-        # ==============================
-        # 🧠 SCORE DE CALIDAD
-        # ==============================
-
-        score = 0
-
-        for r in last5:
-            if r >= 2.0:
-                score += 2
-            elif r >= 1.7:
-                score += 1
-            elif r < 1.5:
-                score -= 2
-
-        if score < 3:
             return False
 
         return True
@@ -236,7 +200,7 @@ class AviatorInfinityBot:
                 # historial_completo viene [reciente0, reciente1, ..., antiguo9]
                 # lo invertimos para que sea cronológico [antiguo, ..., reciente] como pide el filtro
                 historial_cronologico = historial_completo[::-1]
-                if self.filtro_cuota_2(historial_cronologico):
+                if self.filtro_cuota2_balanceado(historial_cronologico):
                     self.msg_entrada()
                     self.entrada_en_curso = True
                     self.last_trade_round = self.round_count
